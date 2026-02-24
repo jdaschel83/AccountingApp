@@ -1,0 +1,60 @@
+{
+  "name": "accounting",
+  "version": "1.0.0",
+  "description": "LLC Accounting App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "bash build.sh",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "papaparse": "^5.4.1",
+    "pdfkit": "^0.15.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0",
+    "electron-rebuild": "^3.2.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/papaparse": "^5.3.15",
+    "@types/pdfkit": "^0.13.5"
+  },
+  "build": {
+    "appId": "com.accounting.app",
+    "productName": "Accounting App",
+    "files": [
+      "main.js",
+      "../backend/dist/**/*",
+      "../backend/public/**/*",
+      "../backend/package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist",
+        "to": "backend/dist"
+      },
+      {
+        "from": "../backend/public",
+        "to": "backend/public"
+      },
+      {
+        "from": "../backend/node_modules",
+        "to": "backend/node_modules"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": ["dmg", "zip"]
+    }
+  }
+}
