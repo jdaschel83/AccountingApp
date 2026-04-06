@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { initializeDatabase } from './database';
+import { initializeBoardsDatabase } from './boards-database';
 import categoriesRouter from './routes/categories';
 import transactionsRouter from './routes/transactions';
 import rulesRouter from './routes/rules';
@@ -9,14 +10,19 @@ import invoicesRouter from './routes/invoices';
 import importRouter from './routes/import';
 import salesRouter from './routes/sales';
 import reportsRouter from './routes/reports';
+import boardsRouter from './routes/boards';
+import backupRouter from './routes/backup';
+import settingsRouter from './routes/settings';
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 initializeDatabase();
+initializeBoardsDatabase();
 
+// Accounting routes
 app.use('/api/categories', categoriesRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/rules', rulesRouter);
@@ -25,11 +31,14 @@ app.use('/api/import', importRouter);
 app.use('/api/sales', salesRouter);
 app.use('/api/reports', reportsRouter);
 
-// Database download endpoint
-app.get('/api/backup', (_req, res) => {
-  const dbPath = process.env.DB_PATH || './data/accounting.db';
-  res.download(dbPath, 'accounting-backup.db');
-});
+// Boards routes
+app.use('/api/boards', boardsRouter);
+
+// Backup routes
+app.use('/api/backup', backupRouter);
+
+// Settings routes
+app.use('/api/settings', settingsRouter);
 
 // Serve built frontend static files (Electron / production mode)
 const publicPath = path.join(__dirname, '..', 'public');

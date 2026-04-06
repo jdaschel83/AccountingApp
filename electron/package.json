@@ -1,7 +1,7 @@
 {
-  "name": "accounting",
-  "version": "1.0.0",
-  "description": "LLC Accounting App",
+  "name": "business-hub",
+  "version": "2.0.0",
+  "description": "Business Hub - Accounting, Boards & More",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -30,8 +30,8 @@
     "@types/pdfkit": "^0.13.5"
   },
   "build": {
-    "appId": "com.accounting.app",
-    "productName": "Accounting App",
+    "appId": "com.businesshub.app",
+    "productName": "Business Hub",
     "files": [
       "main.js",
       "../backend/dist/**/*",

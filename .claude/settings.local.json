@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(/Users/jamesdaschel/Documents/Code/Accounting/frontend/node_modules/.bin/tsc --noEmit --pretty --project /Users/jamesdaschel/Documents/Code/Accounting/frontend/tsconfig.json)",
+      "Bash(curl -s http://localhost:3001/api/reports/dashboard)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(curl -s -X POST http://localhost:3001/api/transactions -H 'Content-Type: application/json' -d '{\"\"date\"\":\"\"2026-02-23\"\",\"\"description\"\":\"\"Test office supplies\"\",\"\"amount\"\":49.99,\"\"type\"\":\"\"expense\"\",\"\"category_id\"\":1,\"\"source\"\":\"\"Chase Visa\"\"}')",
+      "Bash(git remote add origin https://github.com/jdaschel83/AccountingApp.git)",
+      "Bash(git branch -M main)",
+      "Bash(git push -u origin main)",
+      "Bash(docker compose down)",
+      "Bash(npm install)",
+      "Bash(source /Users/jamesdaschel/.zprofile)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx vite build)",
+      "Bash(npx electron-rebuild -m ../backend)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:/bin:/usr/bin:$PATH\")",
+      "Bash(npm run build)",
+      "Bash(codesign --sign - --force /Users/jamesdaschel/Documents/Code/Accounting/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node)"
+    ]
+  }
+}

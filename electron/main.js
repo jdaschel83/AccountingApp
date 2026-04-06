@@ -5,7 +5,7 @@ const fs = require('fs');
 let mainWindow;
 let serverPort;
 
-app.setName('Accounting App');
+app.setName('Business Hub');
 
 // Resolve backend path - works in both dev and packaged mode
 function getBackendPath() {
@@ -22,7 +22,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'Accounting',
+    title: 'Business Hub',
     titleBarStyle: 'default',
     webPreferences: {
       nodeIntegration: false,
@@ -38,12 +38,20 @@ function createWindow() {
 }
 
 async function startBackend() {
-  // Set up database path in app's user data directory
-  const userDataPath = app.getPath('userData');
-  if (!fs.existsSync(userDataPath)) {
-    fs.mkdirSync(userDataPath, { recursive: true });
+  // Dev mode: use ./data/ in project dir. Production: use system userData.
+  const isPackaged = app.isPackaged;
+  let dbDir;
+
+  if (isPackaged) {
+    dbDir = app.getPath('userData');
+  } else {
+    dbDir = path.join(__dirname, '..', 'data', 'dev');
   }
-  process.env.DB_PATH = path.join(userDataPath, 'accounting.db');
+
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  process.env.DB_PATH = path.join(dbDir, 'accounting.db');
 
   const backendPath = getBackendPath();
   const distIndex = path.join(backendPath, 'dist', 'index.js');

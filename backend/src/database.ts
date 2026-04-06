@@ -77,6 +77,11 @@ export function initializeDatabase() {
       column_mapping TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
   // Seed default categories if empty

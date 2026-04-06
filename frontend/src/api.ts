@@ -79,4 +79,61 @@ export const api = {
     return request(`/reports/by-category${query}`);
   },
   getMonthly: (year?: string) => request(`/reports/monthly${year ? '?year=' + year : ''}`),
+
+  // Boards
+  getBoards: () => request('/boards'),
+  getBoard: (id: number) => request(`/boards/${id}`),
+  createBoard: (data: any) => request('/boards', { method: 'POST', body: JSON.stringify(data) }),
+  updateBoard: (id: number, data: any) => request(`/boards/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteBoard: (id: number) => request(`/boards/${id}`, { method: 'DELETE' }),
+
+  // Board Lists
+  createList: (boardId: number, data: any) =>
+    request(`/boards/${boardId}/lists`, { method: 'POST', body: JSON.stringify(data) }),
+  updateList: (id: number, data: any) =>
+    request(`/boards/lists/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteList: (id: number) =>
+    request(`/boards/lists/${id}`, { method: 'DELETE' }),
+  reorderLists: (listIds: number[]) =>
+    request('/boards/lists/reorder', { method: 'PUT', body: JSON.stringify({ listIds }) }),
+
+  // Board Cards
+  createCard: (listId: number, data: any) =>
+    request(`/boards/lists/${listId}/cards`, { method: 'POST', body: JSON.stringify(data) }),
+  updateCard: (id: number, data: any) =>
+    request(`/boards/cards/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCard: (id: number) =>
+    request(`/boards/cards/${id}`, { method: 'DELETE' }),
+  reorderCards: (cards: any[]) =>
+    request('/boards/cards/reorder', { method: 'PUT', body: JSON.stringify({ cards }) }),
+
+  // Board Import
+  importTrello: (jsonData: any) =>
+    request('/boards/import/trello', { method: 'POST', body: JSON.stringify(jsonData) }),
+
+  // Checklist Items
+  addChecklistItem: (cardId: number, text: string) =>
+    request(`/boards/cards/${cardId}/checklist`, { method: 'POST', body: JSON.stringify({ text }) }),
+  updateChecklistItem: (id: number, data: { text?: string; checked?: boolean }) =>
+    request(`/boards/checklist/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteChecklistItem: (id: number) =>
+    request(`/boards/checklist/${id}`, { method: 'DELETE' }),
+
+  // Settings
+  getSettings: () => request('/settings'),
+  updateSettings: (data: Record<string, string>) =>
+    request('/settings', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Backup
+  getDatabases: () => request('/backup/databases'),
+  downloadDatabase: (filename: string) => {
+    const link = document.createElement('a');
+    link.href = `${API_BASE}/backup/download/${encodeURIComponent(filename)}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+  backupAll: (destination: string) =>
+    request('/backup/backup-all', { method: 'POST', body: JSON.stringify({ destination }) }),
 };
