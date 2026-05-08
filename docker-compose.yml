@@ -7,6 +7,7 @@ services:
       - "3001:3001"
     volumes:
       - ./backend/src:/app/src
+      - ./backend/drizzle:/app/drizzle
       - ./data:/app/data
     environment:
       - DB_PATH=/app/data/accounting.db

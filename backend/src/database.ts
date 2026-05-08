@@ -1,116 +1,26 @@
-import Database from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import path from 'path';
+import * as schema from './schema';
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'accounting.db');
 
-const db = new Database(dbPath);
+const sqlite = new BetterSqlite3(dbPath);
+sqlite.pragma('journal_mode = WAL');
+sqlite.pragma('foreign_keys = ON');
 
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+export const drizzleDb = drizzle(sqlite, { schema });
 
 export function initializeDatabase() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('expense', 'income')),
-      color TEXT DEFAULT '#6B7280',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS transactions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date DATE NOT NULL,
-      description TEXT NOT NULL,
-      amount DECIMAL(10,2) NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('expense', 'income')),
-      category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-      source TEXT,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS rules (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      pattern TEXT NOT NULL,
-      category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS invoices (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      invoice_number TEXT NOT NULL UNIQUE,
-      client_name TEXT NOT NULL,
-      client_email TEXT,
-      client_address TEXT,
-      date DATE NOT NULL,
-      due_date DATE NOT NULL,
-      status TEXT NOT NULL DEFAULT 'unpaid' CHECK(status IN ('unpaid', 'paid', 'overdue')),
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS invoice_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
-      description TEXT NOT NULL,
-      quantity DECIMAL(10,2) NOT NULL DEFAULT 1,
-      rate DECIMAL(10,2) NOT NULL,
-      amount DECIMAL(10,2) NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS sales (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      source TEXT NOT NULL,
-      title TEXT NOT NULL,
-      units INTEGER NOT NULL DEFAULT 0,
-      royalty DECIMAL(10,2) NOT NULL,
-      marketplace TEXT,
-      date DATE NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS import_templates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('transaction', 'sales')),
-      column_mapping TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS contacts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL DEFAULT 'business' CHECK(type IN ('business', 'individual')),
-      name TEXT NOT NULL,
-      company TEXT,
-      email TEXT,
-      phone TEXT,
-      address TEXT,
-      city TEXT,
-      state TEXT,
-      zip TEXT,
-      country TEXT,
-      ein TEXT,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `);
-
-  // Safe migration: add contact_id to invoices if not present
-  const invoiceCols = db.prepare('PRAGMA table_info(invoices)').all() as { name: string }[];
-  if (!invoiceCols.some((c) => c.name === 'contact_id')) {
-    db.exec('ALTER TABLE invoices ADD COLUMN contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL');
-  }
+  migrate(drizzleDb, {
+    migrationsFolder: path.join(__dirname, '..', 'drizzle', 'migrations'),
+  });
 
   // Seed default categories if empty
-  const count = db.prepare('SELECT COUNT(*) as count FROM categories').get() as { count: number };
+  const count = sqlite.prepare('SELECT COUNT(*) as count FROM categories').get() as { count: number };
   if (count.count === 0) {
-    const insert = db.prepare('INSERT INTO categories (name, type, color) VALUES (?, ?, ?)');
+    const insert = sqlite.prepare('INSERT INTO categories (name, type, color) VALUES (?, ?, ?)');
     const defaults = [
       ['Office Supplies', 'expense', '#3B82F6'],
       ['Software & Tools', 'expense', '#8B5CF6'],
@@ -126,10 +36,8 @@ export function initializeDatabase() {
       ['Freelance Income', 'income', '#06B6D4'],
       ['Other Income', 'income', '#84CC16'],
     ];
-    const insertMany = db.transaction((items: string[][]) => {
-      for (const item of items) {
-        insert.run(item[0], item[1], item[2]);
-      }
+    const insertMany = sqlite.transaction((items: string[][]) => {
+      for (const item of items) insert.run(item[0], item[1], item[2]);
     });
     insertMany(defaults);
   }
@@ -137,4 +45,5 @@ export function initializeDatabase() {
   console.log('Database initialized successfully');
 }
 
-export default db;
+// Export the raw sqlite instance as default — all existing routes use db.prepare() unchanged
+export default sqlite;
