@@ -13,6 +13,7 @@ import reportsRouter from './routes/reports';
 import boardsRouter from './routes/boards';
 import backupRouter from './routes/backup';
 import settingsRouter from './routes/settings';
+import contactsRouter from './routes/contacts';
 
 const app = express();
 
@@ -39,6 +40,9 @@ app.use('/api/backup', backupRouter);
 
 // Settings routes
 app.use('/api/settings', settingsRouter);
+
+// Contacts routes
+app.use('/api/contacts', contactsRouter);
 
 // Serve built frontend static files (Electron / production mode)
 const publicPath = path.join(__dirname, '..', 'public');

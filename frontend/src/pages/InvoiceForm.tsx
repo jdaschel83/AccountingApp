@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
+interface Contact {
+  id: number;
+  name: string;
+  company: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+}
+
 interface LineItem {
   description: string;
   quantity: number;
@@ -73,6 +85,27 @@ const InvoiceForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
+
+  useEffect(() => {
+    api.getContacts().then((data: Contact[]) => setContacts(data)).catch(() => {});
+  }, []);
+
+  const handleContactSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const contactId = e.target.value;
+    setSelectedContactId(contactId);
+    if (!contactId) return;
+    const contact = contacts.find((c) => c.id === parseInt(contactId));
+    if (!contact) return;
+    const addressParts = [contact.address, contact.city, contact.state, contact.zip, contact.country].filter(Boolean);
+    setForm((prev) => ({
+      ...prev,
+      client_name: contact.name,
+      client_email: contact.email || '',
+      client_address: addressParts.join(', '),
+    }));
+  };
 
   useEffect(() => {
     if (isEditing) {
@@ -191,7 +224,7 @@ const InvoiceForm: React.FC = () => {
         await api.createInvoice(data);
       }
 
-      navigate('/invoices');
+      navigate('/accounting/invoices');
     } catch (err: any) {
       setError(err.message || 'Failed to save invoice');
     } finally {
@@ -271,6 +304,17 @@ const InvoiceForm: React.FC = () => {
           <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
             Client Details
           </h3>
+          {contacts.length > 0 && (
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label>Load from Contacts</label>
+              <select className="form-control" value={selectedContactId} onChange={handleContactSelect} style={{ maxWidth: '320px' }}>
+                <option value="">— Select a contact —</option>
+                {contacts.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="form-row">
             <div className="form-group">
               <label>Client Name</label>

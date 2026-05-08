@@ -116,14 +116,14 @@ const Invoices: React.FC = () => {
   };
 
   const handleRowClick = (invoice: Invoice) => {
-    navigate(`/invoices/${invoice.id}/edit`);
+    navigate(`/accounting/invoices/${invoice.id}/edit`);
   };
 
   return (
     <div>
       <div className="page-header">
         <h1>Invoices</h1>
-        <Link to="/invoices/new" className="btn btn-primary">
+        <Link to="/accounting/invoices/new" className="btn btn-primary">
           New Invoice
         </Link>
       </div>
@@ -153,7 +153,7 @@ const Invoices: React.FC = () => {
       ) : invoices.length === 0 ? (
         <div className="empty-state">
           <p>No invoices found</p>
-          <Link to="/invoices/new" className="btn btn-primary">
+          <Link to="/accounting/invoices/new" className="btn btn-primary">
             Create your first invoice
           </Link>
         </div>

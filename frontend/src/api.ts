@@ -119,6 +119,16 @@ export const api = {
   deleteChecklistItem: (id: number) =>
     request(`/boards/checklist/${id}`, { method: 'DELETE' }),
 
+  // Contacts
+  getContacts: (search?: string) => {
+    const query = search ? '?search=' + encodeURIComponent(search) : '';
+    return request(`/contacts${query}`);
+  },
+  getContact: (id: number) => request(`/contacts/${id}`),
+  createContact: (data: any) => request('/contacts', { method: 'POST', body: JSON.stringify(data) }),
+  updateContact: (id: number, data: any) => request(`/contacts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteContact: (id: number) => request(`/contacts/${id}`, { method: 'DELETE' }),
+
   // Settings
   getSettings: () => request('/settings'),
   updateSettings: (data: Record<string, string>) =>

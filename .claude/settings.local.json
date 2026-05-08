@@ -19,7 +19,9 @@
       "Bash(npx electron-rebuild -m ../backend)",
       "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:/bin:/usr/bin:$PATH\")",
       "Bash(npm run build)",
-      "Bash(codesign --sign - --force /Users/jamesdaschel/Documents/Code/Accounting/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node)"
+      "Bash(codesign --sign - --force /Users/jamesdaschel/Documents/Code/Accounting/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node)",
+      "Bash(docker-compose down *)",
+      "Bash(docker-compose build *)"
     ]
   }
 }

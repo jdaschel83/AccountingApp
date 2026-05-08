@@ -18,6 +18,7 @@ const accountingNavItems = [
   { to: '/accounting/import', label: 'Import' },
   { to: '/accounting/categories', label: 'Categories' },
   { to: '/accounting/invoices', label: 'Invoices' },
+  { to: '/accounting/contacts', label: 'Contacts' },
   { to: '/accounting/sales', label: 'Sales' },
   { to: '/accounting/reports', label: 'Reports' },
 ];

@@ -78,11 +78,34 @@ export function initializeDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL DEFAULT 'business' CHECK(type IN ('business', 'individual')),
+      name TEXT NOT NULL,
+      company TEXT,
+      email TEXT,
+      phone TEXT,
+      address TEXT,
+      city TEXT,
+      state TEXT,
+      zip TEXT,
+      country TEXT,
+      ein TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
   `);
+
+  // Safe migration: add contact_id to invoices if not present
+  const invoiceCols = db.prepare('PRAGMA table_info(invoices)').all() as { name: string }[];
+  if (!invoiceCols.some((c) => c.name === 'contact_id')) {
+    db.exec('ALTER TABLE invoices ADD COLUMN contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL');
+  }
 
   // Seed default categories if empty
   const count = db.prepare('SELECT COUNT(*) as count FROM categories').get() as { count: number };
