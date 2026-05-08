@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { initializeDatabase } from './database';
-import { initializeBoardsDatabase } from './boards-database';
 import categoriesRouter from './routes/categories';
 import transactionsRouter from './routes/transactions';
 import rulesRouter from './routes/rules';
@@ -21,7 +20,6 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 initializeDatabase();
-initializeBoardsDatabase();
 
 // Accounting routes
 app.use('/api/categories', categoriesRouter);

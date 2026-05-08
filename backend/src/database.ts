@@ -2,6 +2,7 @@ import BetterSqlite3 from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import path from 'path';
+import fs from 'fs';
 import * as schema from './schema';
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'accounting.db');
@@ -40,6 +41,22 @@ export function initializeDatabase() {
       for (const item of items) insert.run(item[0], item[1], item[2]);
     });
     insertMany(defaults);
+  }
+
+  // One-time migration: copy boards data from boards.db if it exists and boards table is empty
+  const boardsDbPath = path.join(path.dirname(dbPath), 'boards.db');
+  const boardsCount = sqlite.prepare('SELECT COUNT(*) as count FROM boards').get() as { count: number };
+  if (boardsCount.count === 0 && fs.existsSync(boardsDbPath)) {
+    sqlite.exec(`ATTACH '${boardsDbPath}' AS boards_source`);
+    const sourceTables = (sqlite.prepare(`SELECT name FROM boards_source.sqlite_master WHERE type='table'`).all() as { name: string }[]).map(r => r.name);
+    sqlite.transaction(() => {
+      if (sourceTables.includes('boards'))          sqlite.exec('INSERT INTO boards SELECT * FROM boards_source.boards');
+      if (sourceTables.includes('lists'))           sqlite.exec('INSERT INTO lists SELECT * FROM boards_source.lists');
+      if (sourceTables.includes('cards'))           sqlite.exec('INSERT INTO cards SELECT * FROM boards_source.cards');
+      if (sourceTables.includes('checklist_items')) sqlite.exec('INSERT INTO checklist_items SELECT * FROM boards_source.checklist_items');
+    })();
+    sqlite.exec('DETACH boards_source');
+    console.log('Boards data migrated from boards.db');
   }
 
   console.log('Database initialized successfully');

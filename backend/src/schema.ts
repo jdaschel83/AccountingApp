@@ -91,3 +91,38 @@ export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+// Boards
+export const boards = sqliteTable('boards', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  color: text('color').default('#3b82f6'),
+  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const lists = sqliteTable('lists', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  board_id: integer('board_id').notNull().references(() => boards.id),
+  name: text('name').notNull(),
+  position: integer('position').notNull().default(0),
+  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const cards = sqliteTable('cards', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  list_id: integer('list_id').notNull().references(() => lists.id),
+  title: text('title').notNull(),
+  description: text('description'),
+  position: integer('position').notNull().default(0),
+  due_date: text('due_date'),
+  labels: text('labels').default('[]'),
+  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const checklist_items = sqliteTable('checklist_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  card_id: integer('card_id').notNull().references(() => cards.id),
+  text: text('text').notNull(),
+  checked: integer('checked').notNull().default(0),
+  position: integer('position').notNull().default(0),
+});
