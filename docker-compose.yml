@@ -1,5 +1,6 @@
 services:
   backend:
+    container_name: accounting-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
