@@ -34,22 +34,45 @@ router.post('/transactions', (req, res) => {
     return res.status(400).json({ error: 'rows and columnMapping are required' });
   }
 
-  const { date: dateCol, description: descCol, amount: amountCol } = columnMapping;
-  if (dateCol === undefined || descCol === undefined || amountCol === undefined) {
-    return res.status(400).json({ error: 'columnMapping must include date, description, and amount' });
+  const { date: dateCol, description: descCol, amount: amountCol, debit: debitCol, credit: creditCol } = columnMapping;
+  if (dateCol === undefined || descCol === undefined) {
+    return res.status(400).json({ error: 'columnMapping must include date and description' });
+  }
+  if (amountCol === undefined && debitCol === undefined && creditCol === undefined) {
+    return res.status(400).json({ error: 'columnMapping must include amount, or debit/credit columns' });
   }
 
   let transactions = rows.map((row: string[]) => {
-    const rawAmount = parseFloat(String(row[amountCol]).replace(/[,$]/g, ''));
+    let amount: number;
+    let txType: string;
+
+    if (debitCol !== undefined || creditCol !== undefined) {
+      const debit = debitCol !== undefined ? parseFloat(String(row[debitCol]).replace(/[,$]/g, '')) || 0 : 0;
+      const credit = creditCol !== undefined ? parseFloat(String(row[creditCol]).replace(/[,$]/g, '')) || 0 : 0;
+      if (debit > 0) {
+        amount = debit;
+        txType = 'expense';
+      } else if (credit > 0) {
+        amount = credit;
+        txType = 'income';
+      } else {
+        return null;
+      }
+    } else {
+      const rawAmount = parseFloat(String(row[amountCol]).replace(/[,$]/g, ''));
+      amount = Math.abs(rawAmount);
+      txType = type || (rawAmount < 0 ? 'expense' : 'income');
+    }
+
     return {
       date: row[dateCol],
       description: row[descCol],
-      amount: Math.abs(rawAmount),
-      type: type || (rawAmount < 0 ? 'expense' : 'income'),
+      amount,
+      type: txType,
       source: source || null,
       category_id: null as number | null,
     };
-  }).filter((t: any) => t.date && t.description && !isNaN(t.amount));
+  }).filter((t: any) => t && t.date && t.description && !isNaN(t.amount));
 
   // Auto-categorize
   transactions = categorizeTransactions(transactions);

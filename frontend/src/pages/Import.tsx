@@ -22,6 +22,8 @@ interface TransactionColumnMapping {
   date: number;
   description: number;
   amount: number;
+  debit: number;
+  credit: number;
 }
 
 interface SalesColumnMapping {
@@ -50,7 +52,7 @@ const Import: React.FC = () => {
   const [dragover, setDragover] = useState(false);
 
   // Column mappings
-  const [txMapping, setTxMapping] = useState<TransactionColumnMapping>({ date: -1, description: -1, amount: -1 });
+  const [txMapping, setTxMapping] = useState<TransactionColumnMapping>({ date: -1, description: -1, amount: -1, debit: -1, credit: -1 });
   const [salesMapping, setSalesMapping] = useState<SalesColumnMapping>({ date: -1, title: -1, units: -1, royalty: -1, marketplace: -1 });
 
   // Source & type
@@ -107,10 +109,13 @@ const Import: React.FC = () => {
     const lower = headers.map((h) => h.toLowerCase().trim());
 
     // Transaction columns
-    const dateIdx = lower.findIndex((h) => h.includes('date'));
-    const descIdx = lower.findIndex((h) => h.includes('description') || h.includes('memo') || h.includes('name') || h.includes('payee'));
-    const amountIdx = lower.findIndex((h) => h.includes('amount') || h.includes('total') || h.includes('value'));
-    setTxMapping({ date: dateIdx, description: descIdx, amount: amountIdx });
+    const dateIdx = lower.findIndex((h) => h.includes('transaction date') || h.includes('date'));
+    const descIdx = lower.findIndex((h) => h.includes('description') || h.includes('memo') || h.includes('payee'));
+    const debitIdx = lower.findIndex((h) => h === 'debit' || h.includes('debit'));
+    const creditIdx = lower.findIndex((h) => h === 'credit' || h.includes('credit'));
+    const amountIdx = debitIdx >= 0 || creditIdx >= 0 ? -1
+      : lower.findIndex((h) => h.includes('amount') || h.includes('total') || h.includes('value'));
+    setTxMapping({ date: dateIdx, description: descIdx, amount: amountIdx, debit: debitIdx, credit: creditIdx });
 
     // Sales columns
     const titleIdx = lower.findIndex((h) => h.includes('title') || h.includes('name') || h.includes('book'));
@@ -196,7 +201,8 @@ const Import: React.FC = () => {
 
   const isMappingComplete = (): boolean => {
     if (mode === 'transactions') {
-      return txMapping.date >= 0 && txMapping.description >= 0 && txMapping.amount >= 0;
+      const hasAmount = txMapping.amount >= 0 || txMapping.debit >= 0 || txMapping.credit >= 0;
+      return txMapping.date >= 0 && txMapping.description >= 0 && hasAmount;
     } else {
       return salesMapping.date >= 0 && salesMapping.title >= 0 && salesMapping.units >= 0 && salesMapping.royalty >= 0 && salesMapping.marketplace >= 0;
     }
@@ -210,11 +216,21 @@ const Import: React.FC = () => {
   const getMappedPreviewData = (): Record<string, string>[] => {
     const rows = getPreviewRows();
     if (mode === 'transactions') {
-      return rows.map((row) => ({
-        date: txMapping.date >= 0 ? row[txMapping.date] || '' : '',
-        description: txMapping.description >= 0 ? row[txMapping.description] || '' : '',
-        amount: txMapping.amount >= 0 ? row[txMapping.amount] || '' : '',
-      }));
+      return rows.map((row) => {
+        let amount = '';
+        if (txMapping.debit >= 0 || txMapping.credit >= 0) {
+          const debit = txMapping.debit >= 0 ? row[txMapping.debit] : '';
+          const credit = txMapping.credit >= 0 ? row[txMapping.credit] : '';
+          amount = debit ? `-${debit}` : credit ? `+${credit}` : '';
+        } else if (txMapping.amount >= 0) {
+          amount = row[txMapping.amount] || '';
+        }
+        return {
+          date: txMapping.date >= 0 ? row[txMapping.date] || '' : '',
+          description: txMapping.description >= 0 ? row[txMapping.description] || '' : '',
+          amount,
+        };
+      });
     } else {
       return rows.map((row) => ({
         date: salesMapping.date >= 0 ? row[salesMapping.date] || '' : '',
@@ -239,7 +255,9 @@ const Import: React.FC = () => {
           columnMapping: {
             date: txMapping.date,
             description: txMapping.description,
-            amount: txMapping.amount,
+            amount: txMapping.amount >= 0 ? txMapping.amount : undefined,
+            debit: txMapping.debit >= 0 ? txMapping.debit : undefined,
+            credit: txMapping.credit >= 0 ? txMapping.credit : undefined,
           },
           source,
           type: transactionType,
@@ -271,7 +289,7 @@ const Import: React.FC = () => {
     setParsed(null);
     setError(null);
     setImportResult(null);
-    setTxMapping({ date: -1, description: -1, amount: -1 });
+    setTxMapping({ date: -1, description: -1, amount: -1, debit: -1, credit: -1 });
     setSalesMapping({ date: -1, title: -1, units: -1, royalty: -1, marketplace: -1 });
     setSource('');
     setTransactionType('auto');
@@ -379,9 +397,16 @@ const Import: React.FC = () => {
                 <h3>Column Mapping</h3>
                 {mode === 'transactions' ? (
                   <>
-                    {renderColumnSelect('Date', txMapping.date, (val) => setTxMapping((prev) => ({ ...prev, date: val })))}
-                    {renderColumnSelect('Description', txMapping.description, (val) => setTxMapping((prev) => ({ ...prev, description: val })))}
+                    {renderColumnSelect('Date *', txMapping.date, (val) => setTxMapping((prev) => ({ ...prev, date: val })))}
+                    {renderColumnSelect('Description *', txMapping.description, (val) => setTxMapping((prev) => ({ ...prev, description: val })))}
+                    <div style={{ borderTop: '1px solid #e2e8f0', margin: '8px 0 12px', paddingTop: '12px' }}>
+                      <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px' }}>
+                        Use <strong>Amount</strong> for single-column format, or <strong>Debit / Credit</strong> for split columns (credit card exports).
+                      </p>
+                    </div>
                     {renderColumnSelect('Amount', txMapping.amount, (val) => setTxMapping((prev) => ({ ...prev, amount: val })))}
+                    {renderColumnSelect('Debit Column', txMapping.debit, (val) => setTxMapping((prev) => ({ ...prev, debit: val })))}
+                    {renderColumnSelect('Credit Column', txMapping.credit, (val) => setTxMapping((prev) => ({ ...prev, credit: val })))}
                   </>
                 ) : (
                   <>
