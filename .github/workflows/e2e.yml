@@ -8,7 +8,7 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -16,32 +16,43 @@ jobs:
 
       - name: Start Docker Compose
         run: docker compose up -d --build
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
 
       - name: Wait for backend
         run: |
           echo "Waiting for backend..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             if curl -sf http://localhost:3001/api/categories > /dev/null 2>&1; then
-              echo "Backend is up"
+              echo "Backend is up after $i attempts"
               break
             fi
-            echo "Attempt $i/30 — not ready yet"
-            sleep 3
+            if [ $i -eq 60 ]; then
+              echo "Backend never became healthy — Docker logs:"
+              docker compose logs backend
+              exit 1
+            fi
+            echo "Attempt $i/60 — not ready yet"
+            sleep 5
           done
-          curl -sf http://localhost:3001/api/categories || (echo "Backend never became healthy" && exit 1)
 
       - name: Wait for frontend
         run: |
           echo "Waiting for frontend..."
-          for i in $(seq 1 20); do
+          for i in $(seq 1 40); do
             if curl -sf http://localhost:3000 > /dev/null 2>&1; then
-              echo "Frontend is up"
+              echo "Frontend is up after $i attempts"
               break
             fi
-            echo "Attempt $i/20 — not ready yet"
-            sleep 3
+            if [ $i -eq 40 ]; then
+              echo "Frontend never became healthy — Docker logs:"
+              docker compose logs frontend
+              exit 1
+            fi
+            echo "Attempt $i/40 — not ready yet"
+            sleep 5
           done
-          curl -sf http://localhost:3000 || (echo "Frontend never became healthy" && exit 1)
 
       - name: Run migrations
         run: docker exec accounting-backend-1 npm run migrate
