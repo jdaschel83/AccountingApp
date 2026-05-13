@@ -71,6 +71,15 @@ router.delete('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM boards WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Board not found' });
 
+  const lists = db.prepare('SELECT id FROM lists WHERE board_id = ?').all(req.params.id) as { id: number }[];
+  for (const list of lists) {
+    const cards = db.prepare('SELECT id FROM cards WHERE list_id = ?').all(list.id) as { id: number }[];
+    for (const card of cards) {
+      db.prepare('DELETE FROM checklist_items WHERE card_id = ?').run(card.id);
+    }
+    db.prepare('DELETE FROM cards WHERE list_id = ?').run(list.id);
+  }
+  db.prepare('DELETE FROM lists WHERE board_id = ?').run(req.params.id);
   db.prepare('DELETE FROM boards WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
@@ -113,6 +122,11 @@ router.delete('/lists/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM lists WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'List not found' });
 
+  const cards = db.prepare('SELECT id FROM cards WHERE list_id = ?').all(req.params.id) as { id: number }[];
+  for (const card of cards) {
+    db.prepare('DELETE FROM checklist_items WHERE card_id = ?').run(card.id);
+  }
+  db.prepare('DELETE FROM cards WHERE list_id = ?').run(req.params.id);
   db.prepare('DELETE FROM lists WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
@@ -192,6 +206,7 @@ router.delete('/cards/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM cards WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Card not found' });
 
+  db.prepare('DELETE FROM checklist_items WHERE card_id = ?').run(req.params.id);
   db.prepare('DELETE FROM cards WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });

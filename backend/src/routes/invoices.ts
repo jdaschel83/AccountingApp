@@ -101,6 +101,8 @@ router.delete('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Invoice not found' });
 
+  db.prepare('DELETE FROM invoice_items WHERE invoice_id = ?').run(req.params.id);
+  db.prepare('UPDATE time_entries SET invoice_id = NULL, billed = 0 WHERE invoice_id = ?').run(req.params.id);
   db.prepare('DELETE FROM invoices WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });

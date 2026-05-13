@@ -44,6 +44,8 @@ router.delete('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM categories WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Category not found' });
 
+  db.prepare('UPDATE transactions SET category_id = NULL WHERE category_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM rules WHERE category_id = ?').run(req.params.id);
   db.prepare('DELETE FROM categories WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });

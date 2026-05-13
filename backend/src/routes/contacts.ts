@@ -59,6 +59,9 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Contact not found' });
+  db.prepare('UPDATE invoices SET contact_id = NULL WHERE contact_id = ?').run(req.params.id);
+  db.prepare('UPDATE time_entries SET contact_id = NULL WHERE contact_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM active_timers WHERE contact_id = ?').run(req.params.id);
   db.prepare('DELETE FROM contacts WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
