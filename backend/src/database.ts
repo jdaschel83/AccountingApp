@@ -13,10 +13,23 @@ sqlite.pragma('foreign_keys = ON');
 
 export const drizzleDb = drizzle(sqlite, { schema });
 
-export function initializeDatabase() {
+export function runMigrations() {
   migrate(drizzleDb, {
     migrationsFolder: path.join(__dirname, '..', 'drizzle', 'migrations'),
   });
+  console.log('Migrations applied successfully');
+}
+
+export function initializeDatabase() {
+  // Check tables exist before seeding — if not, migrations haven't been run yet
+  const tablesExist = sqlite.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='categories'"
+  ).get();
+
+  if (!tablesExist) {
+    console.warn('WARNING: Database tables do not exist. Run migrations first: npm run migrate');
+    return;
+  }
 
   // Seed default categories if empty
   const count = sqlite.prepare('SELECT COUNT(*) as count FROM categories').get() as { count: number };
@@ -45,6 +58,8 @@ export function initializeDatabase() {
 
   // One-time migration: copy boards data from boards.db if it exists and boards table is empty
   const boardsDbPath = path.join(path.dirname(dbPath), 'boards.db');
+  const boardsTableExists = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='boards'").get();
+  if (!boardsTableExists) return;
   const boardsCount = sqlite.prepare('SELECT COUNT(*) as count FROM boards').get() as { count: number };
   if (boardsCount.count === 0 && fs.existsSync(boardsDbPath)) {
     sqlite.exec(`ATTACH '${boardsDbPath}' AS boards_source`);
