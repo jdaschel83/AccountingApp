@@ -45,9 +45,20 @@ function formatDuration(startedAt: string): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function today(): string {
+function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
+
+const emptyEntryForm = {
+  contact_id: '',
+  date: todayStr(),
+  description: '',
+  hours: '',
+  rate: '',
+  billable: true,
+  started_at: '',
+  stopped_at: '',
+};
 
 export default function TimeTracking() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -57,20 +68,14 @@ export default function TimeTracking() {
   const [timerDisplay, setTimerDisplay] = useState('00:00:00');
   const [filterContact, setFilterContact] = useState('');
   const [filterBilled, setFilterBilled] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  // Entry modal state
+  // Entry modal
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
-  const [entryForm, setEntryForm] = useState({
-    contact_id: '',
-    date: today(),
-    description: '',
-    hours: '',
-    rate: '',
-    billable: true,
-    started_at: '',
-    stopped_at: '',
-  });
+  const [entryForm, setEntryForm] = useState(emptyEntryForm);
+  const [entrySaving, setEntrySaving] = useState(false);
+  const [entryError, setEntryError] = useState<string | null>(null);
 
   // Timer start modal
   const [showTimerModal, setShowTimerModal] = useState(false);
@@ -83,26 +88,30 @@ export default function TimeTracking() {
   const [invoiceDueDate, setInvoiceDueDate] = useState('');
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
   const [unbilledForContact, setUnbilledForContact] = useState<TimeEntry[]>([]);
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
 
   const load = useCallback(async () => {
     const params: Record<string, string> = {};
     if (filterContact) params.contact_id = filterContact;
     if (filterBilled !== '') params.billed = filterBilled;
-    const [e, s, c, t] = await Promise.all([
-      api.getTimeEntries(params),
-      api.getTimeSummary(),
-      api.getContacts(),
-      api.getActiveTimer(),
-    ]);
-    setEntries(e);
-    setSummary(s);
-    setContacts(c);
-    setActiveTimer(t);
+    try {
+      const [e, s, c, t] = await Promise.all([
+        api.getTimeEntries(params),
+        api.getTimeSummary(),
+        api.getContacts(),
+        api.getActiveTimer(),
+      ]);
+      setEntries(e);
+      setSummary(s);
+      setContacts(c);
+      setActiveTimer(t);
+    } catch (err: any) {
+      setError(err.message);
+    }
   }, [filterContact, filterBilled]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Live timer tick
   useEffect(() => {
     if (!activeTimer) return;
     const interval = setInterval(() => setTimerDisplay(formatDuration(activeTimer.started_at)), 1000);
@@ -111,25 +120,38 @@ export default function TimeTracking() {
   }, [activeTimer]);
 
   async function startTimer() {
-    await api.startTimer({ contact_id: timerForm.contact_id || null, description: timerForm.description });
-    setShowTimerModal(false);
-    setTimerForm({ contact_id: '', description: '' });
-    load();
+    try {
+      await api.startTimer({ contact_id: timerForm.contact_id || null, description: timerForm.description });
+      setShowTimerModal(false);
+      setTimerForm({ contact_id: '', description: '' });
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    }
   }
 
   async function stopTimer() {
-    await api.stopTimer();
-    load();
+    try {
+      await api.stopTimer();
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    }
   }
 
   async function discardTimer() {
-    await api.discardTimer();
-    setActiveTimer(null);
+    try {
+      await api.discardTimer();
+      setActiveTimer(null);
+    } catch (err: any) {
+      setError(err.message);
+    }
   }
 
   function openNewEntry() {
     setEditingEntry(null);
-    setEntryForm({ contact_id: '', date: today(), description: '', hours: '', rate: '', billable: true, started_at: '', stopped_at: '' });
+    setEntryForm({ ...emptyEntryForm, date: todayStr() });
+    setEntryError(null);
     setShowEntryModal(true);
   }
 
@@ -140,39 +162,57 @@ export default function TimeTracking() {
       date: e.date,
       description: e.description,
       hours: String(e.hours),
-      rate: String(e.rate || ''),
+      rate: e.rate != null ? String(e.rate) : '',
       billable: e.billable === 1,
       started_at: e.started_at || '',
       stopped_at: e.stopped_at || '',
     });
+    setEntryError(null);
     setShowEntryModal(true);
   }
 
   async function saveEntry() {
-    const data = {
-      contact_id: entryForm.contact_id ? Number(entryForm.contact_id) : null,
-      date: entryForm.date,
-      description: entryForm.description,
-      hours: parseFloat(entryForm.hours),
-      rate: entryForm.rate ? parseFloat(entryForm.rate) : null,
-      billable: entryForm.billable,
-      started_at: entryForm.started_at || null,
-      stopped_at: entryForm.stopped_at || null,
-      ...(editingEntry ? { billed: editingEntry.billed } : {}),
-    };
-    if (editingEntry) {
-      await api.updateTimeEntry(editingEntry.id, data);
-    } else {
-      await api.createTimeEntry(data);
+    setEntryError(null);
+    if (!entryForm.date) { setEntryError('Date is required.'); return; }
+    if (!entryForm.description.trim()) { setEntryError('Description is required.'); return; }
+    const hours = parseFloat(entryForm.hours);
+    if (!entryForm.hours || isNaN(hours) || hours <= 0) { setEntryError('Enter a valid number of hours.'); return; }
+
+    setEntrySaving(true);
+    try {
+      const data = {
+        contact_id: entryForm.contact_id ? Number(entryForm.contact_id) : null,
+        date: entryForm.date,
+        description: entryForm.description.trim(),
+        hours,
+        rate: entryForm.rate ? parseFloat(entryForm.rate) : null,
+        billable: entryForm.billable,
+        started_at: entryForm.started_at || null,
+        stopped_at: entryForm.stopped_at || null,
+        ...(editingEntry ? { billed: editingEntry.billed } : {}),
+      };
+      if (editingEntry) {
+        await api.updateTimeEntry(editingEntry.id, data);
+      } else {
+        await api.createTimeEntry(data);
+      }
+      setShowEntryModal(false);
+      load();
+    } catch (err: any) {
+      setEntryError(err.message);
+    } finally {
+      setEntrySaving(false);
     }
-    setShowEntryModal(false);
-    load();
   }
 
   async function deleteEntry(id: number) {
     if (!confirm('Delete this time entry?')) return;
-    await api.deleteTimeEntry(id);
-    load();
+    try {
+      await api.deleteTimeEntry(id);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    }
   }
 
   function openInvoiceModal(contactId: number) {
@@ -186,80 +226,89 @@ export default function TimeTracking() {
   }
 
   async function generateInvoice() {
-    const inv = await api.generateInvoiceFromTime({
-      contact_id: Number(invoiceContact),
-      entry_ids: selectedEntryIds,
-      rate: invoiceRate ? parseFloat(invoiceRate) : 0,
-      due_date: invoiceDueDate || undefined,
-    });
-    alert(`Invoice ${inv.invoice_number} created.`);
-    setShowInvoiceModal(false);
-    load();
+    if (selectedEntryIds.length === 0) return;
+    setInvoiceSaving(true);
+    try {
+      const inv = await api.generateInvoiceFromTime({
+        contact_id: Number(invoiceContact),
+        entry_ids: selectedEntryIds,
+        rate: invoiceRate ? parseFloat(invoiceRate) : 0,
+        due_date: invoiceDueDate || undefined,
+      });
+      alert(`Invoice ${inv.invoice_number} created successfully.`);
+      setShowInvoiceModal(false);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setInvoiceSaving(false);
+    }
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Time Tracking</h1>
-        <div className="flex gap-2">
-          <button onClick={openNewEntry} className="btn-secondary">+ Manual Entry</button>
+    <div>
+      <div className="page-header">
+        <h1>Time Tracking</h1>
+        <div className="btn-group">
+          <button className="btn btn-secondary" onClick={openNewEntry}>+ Manual Entry</button>
           {!activeTimer && (
-            <button onClick={() => setShowTimerModal(true)} className="btn-primary">Start Timer</button>
+            <button className="btn btn-primary" onClick={() => setShowTimerModal(true)}>Start Timer</button>
           )}
         </div>
       </div>
 
+      {error && <div className="alert alert-error">{error}</div>}
+
       {/* Active Timer Banner */}
       {activeTimer && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center justify-between">
+        <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
           <div>
-            <div className="flex items-center gap-3">
-              <span className="inline-block w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-              <span className="font-semibold text-green-800 text-lg">{timerDisplay}</span>
-              {activeTimer.description && <span className="text-green-700">{activeTimer.description}</span>}
-              {activeTimer.contact_name && <span className="text-green-600 text-sm">— {activeTimer.contact_name}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: '#16a34a' }} />
+              <strong style={{ fontSize: '20px', fontVariantNumeric: 'tabular-nums' }}>{timerDisplay}</strong>
+              {activeTimer.description && <span>{activeTimer.description}</span>}
+              {activeTimer.contact_name && <span style={{ color: '#166534', opacity: 0.8 }}>— {activeTimer.contact_name}</span>}
             </div>
-            <div className="text-xs text-green-600 mt-1">
+            <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.7 }}>
               Started {new Date(activeTimer.started_at).toLocaleTimeString()}
             </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={discardTimer} className="text-sm text-red-600 hover:underline">Discard</button>
-            <button onClick={stopTimer} className="btn-primary bg-green-600 hover:bg-green-700">Stop & Save</button>
+          <div className="btn-group">
+            <button className="btn btn-secondary btn-sm" onClick={discardTimer} style={{ color: '#dc2626', borderColor: '#fca5a5' }}>Discard</button>
+            <button className="btn btn-success" onClick={stopTimer}>Stop & Save</button>
           </div>
         </div>
       )}
 
       {/* Per-client summary cards */}
       {summary.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="stats-grid" style={{ marginBottom: '24px' }}>
           {summary.map(s => (
-            <div key={s.contact_id} className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="font-semibold text-gray-900 mb-1">{s.contact_name}</div>
-              <div className="text-2xl font-bold text-blue-600">{s.hours_this_month.toFixed(1)}h</div>
-              <div className="text-xs text-gray-500">this month</div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-sm text-gray-600">{s.total_hours.toFixed(1)}h total</span>
-                {s.unbilled_hours > 0 && (
-                  <button
-                    onClick={() => openInvoiceModal(s.contact_id)}
-                    className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200"
-                  >
-                    {s.unbilled_hours.toFixed(1)}h unbilled
-                  </button>
-                )}
-              </div>
+            <div key={s.contact_id} className="stat-card">
+              <div className="stat-card-label">{s.contact_name}</div>
+              <div className="stat-card-value">{s.hours_this_month.toFixed(1)}h</div>
+              <div className="stat-card-sub">this month · {s.total_hours.toFixed(1)}h total</div>
+              {s.unbilled_hours > 0 && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginTop: '12px' }}
+                  onClick={() => openInvoiceModal(s.contact_id)}
+                >
+                  {s.unbilled_hours.toFixed(1)}h unbilled → Invoice
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
       {/* Filters */}
-      <div className="flex gap-3 mb-4">
+      <div className="toolbar">
         <select
           value={filterContact}
           onChange={e => setFilterContact(e.target.value)}
-          className="input-field w-48"
+          className="form-control"
+          style={{ width: '200px' }}
         >
           <option value="">All Clients</option>
           {contacts.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
@@ -267,7 +316,8 @@ export default function TimeTracking() {
         <select
           value={filterBilled}
           onChange={e => setFilterBilled(e.target.value)}
-          className="input-field w-40"
+          className="form-control"
+          style={{ width: '160px' }}
         >
           <option value="">All Entries</option>
           <option value="false">Unbilled</option>
@@ -276,48 +326,47 @@ export default function TimeTracking() {
       </div>
 
       {/* Entries table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+      <div className="table-container">
+        <table>
+          <thead>
             <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Client</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Description</th>
-              <th className="text-right px-4 py-3 font-medium text-gray-600">Hours</th>
-              <th className="text-right px-4 py-3 font-medium text-gray-600">Rate</th>
-              <th className="text-center px-4 py-3 font-medium text-gray-600">Status</th>
-              <th className="px-4 py-3" />
+              <th>Date</th>
+              <th>Client</th>
+              <th>Description</th>
+              <th className="amount">Hours</th>
+              <th className="amount">Rate</th>
+              <th style={{ textAlign: 'center' }}>Status</th>
+              <th style={{ width: '120px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {entries.length === 0 && (
+            {entries.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400">
+                <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
                   No time entries yet. Start a timer or add a manual entry.
                 </td>
               </tr>
-            )}
-            {entries.map(entry => (
-              <tr key={entry.id} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-700">{entry.date}</td>
-                <td className="px-4 py-3 text-gray-700">{entry.contact_name || '—'}</td>
-                <td className="px-4 py-3 text-gray-900">{entry.description}</td>
-                <td className="px-4 py-3 text-right font-mono">{entry.hours.toFixed(2)}</td>
-                <td className="px-4 py-3 text-right text-gray-500">
-                  {entry.rate ? `$${entry.rate}/hr` : '—'}
-                </td>
-                <td className="px-4 py-3 text-center">
+            ) : entries.map(entry => (
+              <tr key={entry.id}>
+                <td>{entry.date}</td>
+                <td>{entry.contact_name || '—'}</td>
+                <td>{entry.description}</td>
+                <td className="amount" style={{ fontVariantNumeric: 'tabular-nums' }}>{entry.hours.toFixed(2)}</td>
+                <td className="amount" style={{ color: '#64748b' }}>{entry.rate ? `$${entry.rate}/hr` : '—'}</td>
+                <td style={{ textAlign: 'center' }}>
                   {entry.billed ? (
-                    <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500">Billed</span>
+                    <span className="badge badge-gray">Billed</span>
                   ) : entry.billable ? (
-                    <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">Unbilled</span>
+                    <span className="badge badge-yellow">Unbilled</span>
                   ) : (
-                    <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-600">Non-billable</span>
+                    <span className="badge badge-blue">Non-billable</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <button onClick={() => openEditEntry(entry)} className="text-blue-600 hover:underline mr-3 text-xs">Edit</button>
-                  <button onClick={() => deleteEntry(entry.id)} className="text-red-500 hover:underline text-xs">Delete</button>
+                <td>
+                  <div className="btn-group">
+                    <button className="btn btn-secondary btn-sm" onClick={() => openEditEntry(entry)}>Edit</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => deleteEntry(entry.id)}>Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -327,61 +376,67 @@ export default function TimeTracking() {
 
       {/* Entry Modal */}
       {showEntryModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">{editingEntry ? 'Edit Entry' : 'New Time Entry'}</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="label">Client</label>
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <div className="modal-header">
+              <span className="modal-title">{editingEntry ? 'Edit Entry' : 'New Time Entry'}</span>
+              <button className="modal-close" onClick={() => setShowEntryModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {entryError && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{entryError}</div>}
+              <div className="form-group">
+                <label>Client</label>
                 <select
                   value={entryForm.contact_id}
                   onChange={e => setEntryForm(f => ({ ...f, contact_id: e.target.value }))}
-                  className="input-field"
+                  className="form-control"
                 >
                   <option value="">No client</option>
                   {contacts.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Date</label>
-                  <input type="date" value={entryForm.date} onChange={e => setEntryForm(f => ({ ...f, date: e.target.value }))} className="input-field" />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Date *</label>
+                  <input type="date" value={entryForm.date} onChange={e => setEntryForm(f => ({ ...f, date: e.target.value }))} className="form-control" />
                 </div>
-                <div>
-                  <label className="label">Hours</label>
-                  <input type="number" step="0.25" value={entryForm.hours} onChange={e => setEntryForm(f => ({ ...f, hours: e.target.value }))} className="input-field" placeholder="1.5" />
+                <div className="form-group">
+                  <label>Hours *</label>
+                  <input type="number" step="0.25" min="0" value={entryForm.hours} onChange={e => setEntryForm(f => ({ ...f, hours: e.target.value }))} className="form-control" placeholder="1.5" />
                 </div>
               </div>
-              <div>
-                <label className="label">Description</label>
-                <input type="text" value={entryForm.description} onChange={e => setEntryForm(f => ({ ...f, description: e.target.value }))} className="input-field" placeholder="What did you work on?" />
+              <div className="form-group">
+                <label>Description *</label>
+                <input type="text" value={entryForm.description} onChange={e => setEntryForm(f => ({ ...f, description: e.target.value }))} className="form-control" placeholder="What did you work on?" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Rate ($/hr, optional)</label>
-                  <input type="number" step="0.01" value={entryForm.rate} onChange={e => setEntryForm(f => ({ ...f, rate: e.target.value }))} className="input-field" placeholder="100" />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Rate ($/hr, optional)</label>
+                  <input type="number" step="0.01" min="0" value={entryForm.rate} onChange={e => setEntryForm(f => ({ ...f, rate: e.target.value }))} className="form-control" placeholder="100" />
                 </div>
-                <div className="flex items-end pb-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={entryForm.billable} onChange={e => setEntryForm(f => ({ ...f, billable: e.target.checked }))} className="rounded" />
-                    <span className="text-sm text-gray-700">Billable</span>
+                <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '2px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'normal' }}>
+                    <input type="checkbox" checked={entryForm.billable} onChange={e => setEntryForm(f => ({ ...f, billable: e.target.checked }))} />
+                    Billable
                   </label>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Start time (optional)</label>
-                  <input type="datetime-local" value={entryForm.started_at} onChange={e => setEntryForm(f => ({ ...f, started_at: e.target.value }))} className="input-field" />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start time (optional)</label>
+                  <input type="datetime-local" value={entryForm.started_at} onChange={e => setEntryForm(f => ({ ...f, started_at: e.target.value }))} className="form-control" />
                 </div>
-                <div>
-                  <label className="label">Stop time (optional)</label>
-                  <input type="datetime-local" value={entryForm.stopped_at} onChange={e => setEntryForm(f => ({ ...f, stopped_at: e.target.value }))} className="input-field" />
+                <div className="form-group">
+                  <label>Stop time (optional)</label>
+                  <input type="datetime-local" value={entryForm.stopped_at} onChange={e => setEntryForm(f => ({ ...f, stopped_at: e.target.value }))} className="form-control" />
                 </div>
               </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button onClick={() => setShowEntryModal(false)} className="btn-secondary">Cancel</button>
-              <button onClick={saveEntry} className="btn-primary">Save</button>
+              <div className="form-actions">
+                <button className="btn btn-secondary" onClick={() => setShowEntryModal(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={saveEntry} disabled={entrySaving}>
+                  {entrySaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -389,36 +444,40 @@ export default function TimeTracking() {
 
       {/* Timer Start Modal */}
       {showTimerModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold mb-4">Start Timer</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="label">Client (optional)</label>
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <span className="modal-title">Start Timer</span>
+              <button className="modal-close" onClick={() => setShowTimerModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Client (optional)</label>
                 <select
                   value={timerForm.contact_id}
                   onChange={e => setTimerForm(f => ({ ...f, contact_id: e.target.value }))}
-                  className="input-field"
+                  className="form-control"
                 >
                   <option value="">No client</option>
                   {contacts.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="label">Description (optional)</label>
+              <div className="form-group">
+                <label>What are you working on? (optional)</label>
                 <input
                   type="text"
                   value={timerForm.description}
                   onChange={e => setTimerForm(f => ({ ...f, description: e.target.value }))}
-                  className="input-field"
-                  placeholder="What are you working on?"
+                  className="form-control"
+                  placeholder="e.g. Client call, Design review…"
                   autoFocus
+                  onKeyDown={e => e.key === 'Enter' && startTimer()}
                 />
               </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button onClick={() => setShowTimerModal(false)} className="btn-secondary">Cancel</button>
-              <button onClick={startTimer} className="btn-primary bg-green-600 hover:bg-green-700">Start</button>
+              <div className="form-actions">
+                <button className="btn btn-secondary" onClick={() => setShowTimerModal(false)}>Cancel</button>
+                <button className="btn btn-success" onClick={startTimer}>Start Timer</button>
+              </div>
             </div>
           </div>
         </div>
@@ -426,44 +485,67 @@ export default function TimeTracking() {
 
       {/* Generate Invoice Modal */}
       {showInvoiceModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-            <h2 className="text-lg font-semibold mb-1">Generate Invoice</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              {unbilledForContact.length} unbilled {unbilledForContact.length === 1 ? 'entry' : 'entries'} will be included.
-            </p>
-            <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 mb-4 max-h-48 overflow-y-auto">
-              {unbilledForContact.map(e => (
-                <div key={e.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedEntryIds.includes(e.id)}
-                    onChange={ev => {
-                      if (ev.target.checked) setSelectedEntryIds(ids => [...ids, e.id]);
-                      else setSelectedEntryIds(ids => ids.filter(i => i !== e.id));
-                    }}
-                  />
-                  <span className="text-gray-500 w-24 shrink-0">{e.date}</span>
-                  <span className="flex-1 text-gray-800 truncate">{e.description}</span>
-                  <span className="font-mono text-gray-700">{e.hours.toFixed(2)}h</span>
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <div className="modal-header">
+              <span className="modal-title">Generate Invoice from Time</span>
+              <button className="modal-close" onClick={() => setShowInvoiceModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>
+                Select which unbilled entries to include, then create an invoice.
+              </p>
+              <div className="table-container" style={{ maxHeight: '220px', overflowY: 'auto', marginBottom: '20px' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px' }}></th>
+                      <th>Date</th>
+                      <th>Description</th>
+                      <th className="amount">Hours</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unbilledForContact.map(e => (
+                      <tr key={e.id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedEntryIds.includes(e.id)}
+                            onChange={ev => {
+                              if (ev.target.checked) setSelectedEntryIds(ids => [...ids, e.id]);
+                              else setSelectedEntryIds(ids => ids.filter(i => i !== e.id));
+                            }}
+                          />
+                        </td>
+                        <td>{e.date}</td>
+                        <td>{e.description}</td>
+                        <td className="amount">{e.hours.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Default Rate ($/hr)</label>
+                  <input type="number" step="0.01" min="0" value={invoiceRate} onChange={e => setInvoiceRate(e.target.value)} className="form-control" placeholder="Used if entry has no rate" />
                 </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Default Rate ($/hr)</label>
-                <input type="number" step="0.01" value={invoiceRate} onChange={e => setInvoiceRate(e.target.value)} className="input-field" placeholder="Used if entry has no rate" />
+                <div className="form-group">
+                  <label>Due Date</label>
+                  <input type="date" value={invoiceDueDate} onChange={e => setInvoiceDueDate(e.target.value)} className="form-control" />
+                </div>
               </div>
-              <div>
-                <label className="label">Due Date</label>
-                <input type="date" value={invoiceDueDate} onChange={e => setInvoiceDueDate(e.target.value)} className="input-field" />
+              <div className="form-actions">
+                <button className="btn btn-secondary" onClick={() => setShowInvoiceModal(false)}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  onClick={generateInvoice}
+                  disabled={selectedEntryIds.length === 0 || invoiceSaving}
+                >
+                  {invoiceSaving ? 'Creating…' : `Create Invoice (${selectedEntryIds.length} entries)`}
+                </button>
               </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button onClick={() => setShowInvoiceModal(false)} className="btn-secondary">Cancel</button>
-              <button onClick={generateInvoice} disabled={selectedEntryIds.length === 0} className="btn-primary">
-                Create Invoice
-              </button>
             </div>
           </div>
         </div>
