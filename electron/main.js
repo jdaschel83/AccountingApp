@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -7,7 +7,6 @@ let serverPort;
 
 app.setName('Business Hub');
 
-// Resolve backend path - works in both dev and packaged mode
 function getBackendPath() {
   const resourcesPath = path.join(process.resourcesPath, 'backend');
   if (fs.existsSync(path.join(resourcesPath, 'dist', 'index.js'))) {
@@ -38,7 +37,6 @@ function createWindow() {
 }
 
 async function startBackend() {
-  // Dev mode: use ./data/ in project dir. Production: use system userData.
   const isPackaged = app.isPackaged;
   let dbDir;
 
@@ -70,14 +68,108 @@ async function startBackend() {
 
   serverPort = await backend.startServer(0);
   console.log(`Server started on port ${serverPort}`);
+  return backend;
+}
+
+async function checkAndMigrate(backend) {
+  let pending;
+  try {
+    pending = backend.getPendingMigrationsCount();
+  } catch (err) {
+    console.error('Could not check migration status:', err);
+    return true; // proceed anyway
+  }
+
+  if (pending === 0) return true;
+
+  // Prompt user
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    title: 'Database Update Required',
+    message: `Your database needs to be updated (${pending} new migration${pending > 1 ? 's' : ''}).`,
+    detail: 'A backup of your current database will be created before updating. Choose where to save it.',
+    buttons: ['Choose Backup Location…', 'Quit'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+
+  if (response === 1) {
+    app.quit();
+    return false;
+  }
+
+  // Pick backup location
+  const dateStr = new Date().toISOString().split('T')[0];
+  const { filePath, canceled } = await dialog.showSaveDialog({
+    title: 'Save Database Backup',
+    defaultPath: path.join(app.getPath('desktop'), `accounting-backup-${dateStr}.db`),
+    filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+    buttonLabel: 'Save Backup & Update',
+  });
+
+  if (canceled || !filePath) {
+    await dialog.showMessageBox({
+      type: 'warning',
+      title: 'Update Cancelled',
+      message: 'No backup location chosen. Update cancelled.',
+      detail: 'The database was not modified. Launch the app again to retry.',
+    });
+    app.quit();
+    return false;
+  }
+
+  // Copy backup
+  try {
+    fs.copyFileSync(process.env.DB_PATH, filePath);
+  } catch (err) {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'Backup Failed',
+      message: 'Could not create database backup.',
+      detail: `Error: ${err.message}\n\nThe database was not modified.`,
+    });
+    app.quit();
+    return false;
+  }
+
+  // Run migrations
+  try {
+    backend.runMigrations();
+  } catch (err) {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'Migration Failed',
+      message: 'Database update failed.',
+      detail: `Your database was not changed.\nYour backup is safe at:\n${filePath}\n\nError: ${err.message}`,
+    });
+    app.quit();
+    return false;
+  }
+
+  await dialog.showMessageBox({
+    type: 'info',
+    title: 'Database Updated',
+    message: 'Database updated successfully.',
+    detail: `Backup saved to:\n${filePath}`,
+    buttons: ['Open Business Hub'],
+  });
+
+  return true;
 }
 
 app.whenReady().then(async () => {
   try {
-    await startBackend();
-    createWindow();
+    const backend = await startBackend();
+    const ok = await checkAndMigrate(backend);
+    if (ok) createWindow();
   } catch (err) {
     console.error('Failed to start:', err);
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'Startup Error',
+      message: 'Business Hub failed to start.',
+      detail: err.message,
+    });
     app.quit();
   }
 });

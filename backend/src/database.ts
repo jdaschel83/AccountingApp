@@ -20,6 +20,17 @@ export function runMigrations() {
   console.log('Migrations applied successfully');
 }
 
+export function getPendingMigrationsCount(): number {
+  const migrationsFolder = path.join(__dirname, '..', 'drizzle', 'migrations');
+  const files = fs.readdirSync(migrationsFolder).filter(f => f.endsWith('.sql'));
+  try {
+    const applied = sqlite.prepare('SELECT COUNT(*) as count FROM __drizzle_migrations').get() as { count: number };
+    return Math.max(0, files.length - applied.count);
+  } catch {
+    return files.length;
+  }
+}
+
 export function initializeDatabase() {
   // Check tables exist before seeding — if not, migrations haven't been run yet
   const tablesExist = sqlite.prepare(

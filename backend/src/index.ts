@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { initializeDatabase } from './database';
+import { initializeDatabase, runMigrations, getPendingMigrationsCount } from './database';
 import categoriesRouter from './routes/categories';
 import transactionsRouter from './routes/transactions';
 import rulesRouter from './routes/rules';
@@ -65,7 +65,7 @@ export function startServer(port: number): Promise<number> {
   });
 }
 
-export { app };
+export { app, runMigrations, getPendingMigrationsCount };
 
 // Auto-start when run directly (Docker mode)
 if (require.main === module) {
