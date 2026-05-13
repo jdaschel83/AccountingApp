@@ -24,7 +24,7 @@ jobs:
         run: |
           echo "Waiting for backend..."
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:3001/api/categories > /dev/null 2>&1; then
+            if curl -sf http://localhost:3001/health > /dev/null 2>&1; then
               echo "Backend is up after $i attempts"
               break
             fi
@@ -34,23 +34,6 @@ jobs:
               exit 1
             fi
             echo "Attempt $i/60 — not ready yet"
-            sleep 5
-          done
-
-      - name: Wait for frontend
-        run: |
-          echo "Waiting for frontend..."
-          for i in $(seq 1 40); do
-            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
-              echo "Frontend is up after $i attempts"
-              break
-            fi
-            if [ $i -eq 40 ]; then
-              echo "Frontend never became healthy — Docker logs:"
-              docker compose logs frontend
-              exit 1
-            fi
-            echo "Attempt $i/40 — not ready yet"
             sleep 5
           done
 
