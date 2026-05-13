@@ -129,6 +129,21 @@ export const api = {
   updateContact: (id: number, data: any) => request(`/contacts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteContact: (id: number) => request(`/contacts/${id}`, { method: 'DELETE' }),
 
+  // Time Tracking
+  getTimeEntries: (params?: Record<string, string>) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request(`/time-tracking/entries${query}`);
+  },
+  getTimeSummary: () => request('/time-tracking/summary'),
+  createTimeEntry: (data: any) => request('/time-tracking/entries', { method: 'POST', body: JSON.stringify(data) }),
+  updateTimeEntry: (id: number, data: any) => request(`/time-tracking/entries/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTimeEntry: (id: number) => request(`/time-tracking/entries/${id}`, { method: 'DELETE' }),
+  getActiveTimer: () => request('/time-tracking/timer'),
+  startTimer: (data: any) => request('/time-tracking/timer/start', { method: 'POST', body: JSON.stringify(data) }),
+  stopTimer: () => request('/time-tracking/timer/stop', { method: 'POST', body: JSON.stringify({}) }),
+  discardTimer: () => request('/time-tracking/timer', { method: 'DELETE' }),
+  generateInvoiceFromTime: (data: any) => request('/time-tracking/generate-invoice', { method: 'POST', body: JSON.stringify(data) }),
+
   // Settings
   getSettings: () => request('/settings'),
   updateSettings: (data: Record<string, string>) =>

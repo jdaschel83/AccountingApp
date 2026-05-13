@@ -13,6 +13,7 @@ import boardsRouter from './routes/boards';
 import backupRouter from './routes/backup';
 import settingsRouter from './routes/settings';
 import contactsRouter from './routes/contacts';
+import timeTrackingRouter from './routes/time-tracking';
 
 const app = express();
 
@@ -41,6 +42,9 @@ app.use('/api/settings', settingsRouter);
 
 // Contacts routes
 app.use('/api/contacts', contactsRouter);
+
+// Time tracking routes
+app.use('/api/time-tracking', timeTrackingRouter);
 
 // Serve built frontend static files (Electron / production mode)
 const publicPath = path.join(__dirname, '..', 'public');

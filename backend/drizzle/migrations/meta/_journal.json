@@ -6,14 +6,21 @@
       "idx": 0,
       "version": "6",
       "when": 1778263516456,
-      "tag": "0000_lyrical_baron_strucker",
+      "tag": "0000_initial_schema",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "6",
       "when": 1778264974757,
-      "tag": "0001_tiresome_reptil",
+      "tag": "0001_add_boards",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778691166876,
+      "tag": "0002_add_time_tracking",
       "breakpoints": true
     }
   ]

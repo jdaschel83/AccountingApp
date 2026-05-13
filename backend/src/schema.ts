@@ -126,3 +126,27 @@ export const checklist_items = sqliteTable('checklist_items', {
   checked: integer('checked').notNull().default(0),
   position: integer('position').notNull().default(0),
 });
+
+// Time Tracking
+export const time_entries = sqliteTable('time_entries', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  contact_id: integer('contact_id').references(() => contacts.id),
+  date: text('date').notNull(),
+  description: text('description').notNull(),
+  hours: real('hours').notNull(),
+  rate: real('rate'),
+  billable: integer('billable').notNull().default(1),
+  billed: integer('billed').notNull().default(0),
+  invoice_id: integer('invoice_id').references(() => invoices.id),
+  started_at: text('started_at'),
+  stopped_at: text('stopped_at'),
+  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const active_timers = sqliteTable('active_timers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  contact_id: integer('contact_id').references(() => contacts.id),
+  description: text('description').notNull().default(''),
+  started_at: text('started_at').notNull(),
+  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});

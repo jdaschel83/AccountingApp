@@ -13,6 +13,7 @@ import Reports from './pages/Reports';
 import BoardsList from './pages/BoardsList';
 import Board from './pages/Board';
 import Contacts from './pages/Contacts';
+import TimeTracking from './pages/TimeTracking';
 import Settings from './pages/Settings';
 
 const App: React.FC = () => {
@@ -33,6 +34,7 @@ const App: React.FC = () => {
         <Route path="/accounting/sales" element={<Sales />} />
         <Route path="/accounting/reports" element={<Reports />} />
         <Route path="/accounting/contacts" element={<Contacts />} />
+        <Route path="/accounting/time-tracking" element={<TimeTracking />} />
 
         {/* Boards routes */}
         <Route path="/boards" element={<BoardsList />} />

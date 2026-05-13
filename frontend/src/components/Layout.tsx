@@ -19,6 +19,7 @@ const accountingNavItems = [
   { to: '/accounting/categories', label: 'Categories' },
   { to: '/accounting/invoices', label: 'Invoices' },
   { to: '/accounting/contacts', label: 'Contacts' },
+  { to: '/accounting/time-tracking', label: 'Time Tracking' },
   { to: '/accounting/sales', label: 'Sales' },
   { to: '/accounting/reports', label: 'Reports' },
 ];
