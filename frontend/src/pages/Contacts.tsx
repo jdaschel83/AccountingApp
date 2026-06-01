@@ -6,6 +6,7 @@ interface Contact {
   id: number;
   type: 'business' | 'individual';
   name: string;
+  contact_person: string | null;
   company: string | null;
   email: string | null;
   phone: string | null;
@@ -21,6 +22,7 @@ interface Contact {
 const emptyForm = {
   type: 'business' as 'business' | 'individual',
   name: '',
+  contact_person: '',
   company: '',
   email: '',
   phone: '',
@@ -74,6 +76,7 @@ const Contacts: React.FC = () => {
     setForm({
       type: c.type,
       name: c.name,
+      contact_person: c.contact_person || '',
       company: c.company || '',
       email: c.email || '',
       phone: c.phone || '',
@@ -101,6 +104,7 @@ const Contacts: React.FC = () => {
       const data = {
         type: form.type,
         name: form.name,
+        contact_person: form.type === 'business' ? (form.contact_person || null) : null,
         company: form.company || null,
         email: form.email || null,
         phone: form.phone || null,
@@ -231,6 +235,7 @@ const Contacts: React.FC = () => {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 32px' }}>
             <div><span style={{ color: '#64748b', fontSize: '13px' }}>Type</span><div>{viewingContact.type === 'business' ? 'Business' : 'Individual'}</div></div>
+            {viewingContact.contact_person && <div><span style={{ color: '#64748b', fontSize: '13px' }}>Contact Person</span><div>{viewingContact.contact_person}</div></div>}
             {viewingContact.company && <div><span style={{ color: '#64748b', fontSize: '13px' }}>Company</span><div>{viewingContact.company}</div></div>}
             {viewingContact.email && <div><span style={{ color: '#64748b', fontSize: '13px' }}>Email</span><div>{viewingContact.email}</div></div>}
             {viewingContact.phone && <div><span style={{ color: '#64748b', fontSize: '13px' }}>Phone</span><div>{viewingContact.phone}</div></div>}
@@ -253,10 +258,16 @@ const Contacts: React.FC = () => {
               </select>
             </div>
             <div className="form-group">
-              <label>Name *</label>
-              <input type="text" className="form-control" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name or business name" />
+              <label>{form.type === 'business' ? 'Business Name *' : 'Full Name *'}</label>
+              <input type="text" className="form-control" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} placeholder={form.type === 'business' ? 'Company name' : 'Full name'} />
             </div>
           </div>
+          {form.type === 'business' && (
+            <div className="form-group">
+              <label>Contact Person</label>
+              <input type="text" className="form-control" value={form.contact_person} onChange={(e) => setForm(f => ({ ...f, contact_person: e.target.value }))} placeholder="Name of person at this business" />
+            </div>
+          )}
           <div className="form-row">
             <div className="form-group">
               <label>{form.type === 'individual' ? 'Company / Employer' : 'DBA / Trade Name'}</label>

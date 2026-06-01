@@ -114,12 +114,25 @@ router.get('/:id/pdf', (req, res) => {
 
   const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(req.params.id) as any[];
 
-  const pdf = generateInvoicePDF({ ...invoice, items });
+  const settingsRows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
+  const settings: Record<string, string> = {};
+  for (const row of settingsRows) settings[row.key] = row.value;
+
+  const pdf = generateInvoicePDF({
+    ...invoice,
+    items,
+    business: {
+      business_name: settings.business_name,
+      owner_name: settings.owner_name,
+      email: settings.email,
+      phone: settings.phone,
+      address: settings.address,
+    },
+  });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoice.invoice_number}.pdf`);
   pdf.pipe(res);
-  pdf.end();
 });
 
 export default router;

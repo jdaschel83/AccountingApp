@@ -169,6 +169,8 @@ const Import: React.FC = () => {
         date: mapping.date ?? -1,
         description: mapping.description ?? -1,
         amount: mapping.amount ?? -1,
+        debit: mapping.debit ?? -1,
+        credit: mapping.credit ?? -1,
       });
     } else {
       setMode('sales');

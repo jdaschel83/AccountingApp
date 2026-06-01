@@ -25,13 +25,13 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { type, name, company, email, phone, address, city, state, zip, country, ein, notes } = req.body;
+  const { type, name, contact_person, company, email, phone, address, city, state, zip, country, ein, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
   const result = db.prepare(
-    `INSERT INTO contacts (type, name, company, email, phone, address, city, state, zip, country, ein, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(type || 'business', name, company || null, email || null, phone || null,
+    `INSERT INTO contacts (type, name, contact_person, company, email, phone, address, city, state, zip, country, ein, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(type || 'business', name, contact_person || null, company || null, email || null, phone || null,
         address || null, city || null, state || null, zip || null, country || null,
         ein || null, notes || null);
 
@@ -42,14 +42,14 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Contact not found' });
 
-  const { type, name, company, email, phone, address, city, state, zip, country, ein, notes } = req.body;
+  const { type, name, contact_person, company, email, phone, address, city, state, zip, country, ein, notes } = req.body;
 
   db.prepare(
     `UPDATE contacts SET
-      type = COALESCE(?, type), name = COALESCE(?, name), company = ?, email = ?,
+      type = COALESCE(?, type), name = COALESCE(?, name), contact_person = ?, company = ?, email = ?,
       phone = ?, address = ?, city = ?, state = ?, zip = ?, country = ?, ein = ?, notes = ?
      WHERE id = ?`
-  ).run(type, name, company ?? null, email ?? null, phone ?? null, address ?? null,
+  ).run(type, name, contact_person ?? null, company ?? null, email ?? null, phone ?? null, address ?? null,
         city ?? null, state ?? null, zip ?? null, country ?? null, ein ?? null,
         notes ?? null, req.params.id);
 

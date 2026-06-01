@@ -89,6 +89,7 @@ export default function TimeTracking() {
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
   const [unbilledForContact, setUnbilledForContact] = useState<TimeEntry[]>([]);
   const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const params: Record<string, string> = {};
@@ -222,12 +223,14 @@ export default function TimeTracking() {
     setUnbilledForContact(unbilled);
     setInvoiceRate('');
     setInvoiceDueDate('');
+    setInvoiceError(null);
     setShowInvoiceModal(true);
   }
 
   async function generateInvoice() {
     if (selectedEntryIds.length === 0) return;
     setInvoiceSaving(true);
+    setInvoiceError(null);
     try {
       const inv = await api.generateInvoiceFromTime({
         contact_id: Number(invoiceContact),
@@ -235,11 +238,11 @@ export default function TimeTracking() {
         rate: invoiceRate ? parseFloat(invoiceRate) : 0,
         due_date: invoiceDueDate || undefined,
       });
-      alert(`Invoice ${inv.invoice_number} created successfully.`);
       setShowInvoiceModal(false);
       load();
+      alert(`Invoice ${inv.invoice_number} created — find it in the Invoices section.`);
     } catch (err: any) {
-      setError(err.message);
+      setInvoiceError(err.message);
     } finally {
       setInvoiceSaving(false);
     }
@@ -536,6 +539,9 @@ export default function TimeTracking() {
                   <input type="date" value={invoiceDueDate} onChange={e => setInvoiceDueDate(e.target.value)} className="form-control" />
                 </div>
               </div>
+              {invoiceError && (
+                <div className="alert alert-error" style={{ marginBottom: '12px' }}>{invoiceError}</div>
+              )}
               <div className="form-actions">
                 <button className="btn btn-secondary" onClick={() => setShowInvoiceModal(false)}>Cancel</button>
                 <button

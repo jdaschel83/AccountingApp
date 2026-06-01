@@ -177,10 +177,11 @@ router.post('/generate-invoice', (req, res) => {
   const invNum = invoice_number || `INV-${Date.now()}`;
   const dueDate = due_date || today;
 
+  const clientAddress = [contact.address, contact.city, contact.state, contact.zip].filter(Boolean).join(', ');
   const invoiceResult = db.prepare(`
-    INSERT INTO invoices (invoice_number, contact_id, client_name, client_email, client_address, date, due_date, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'unpaid')
-  `).run(invNum, contact_id, contact.name, contact.email || '', contact.address || '', today, dueDate);
+    INSERT INTO invoices (invoice_number, contact_id, client_name, client_contact_person, client_email, client_address, date, due_date, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unpaid')
+  `).run(invNum, contact_id, contact.name, contact.contact_person || null, contact.email || '', clientAddress, today, dueDate);
 
   const invoiceId = invoiceResult.lastInsertRowid;
   const effectiveRate = rate || 0;
