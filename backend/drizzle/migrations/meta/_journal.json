@@ -26,21 +26,21 @@
     {
       "idx": 3,
       "version": "6",
-      "when": 1748800000000,
+      "when": 1778691200000,
       "tag": "0003_add_contact_id_to_invoices",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "6",
-      "when": 1748800001000,
+      "when": 1778691201000,
       "tag": "0004_add_contact_person",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "6",
-      "when": 1748800002000,
+      "when": 1778691202000,
       "tag": "0005_add_client_contact_person",
       "breakpoints": true
     }

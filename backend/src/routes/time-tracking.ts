@@ -193,7 +193,8 @@ router.post('/generate-invoice', (req, res) => {
   db.transaction(() => {
     for (const entry of entries) {
       const entryRate = entry.rate || effectiveRate;
-      insertItem.run(invoiceId, entry.description, entry.hours, entryRate, entry.hours * entryRate);
+      const desc = `${entry.date} — ${entry.description}`;
+      insertItem.run(invoiceId, desc, entry.hours, entryRate, entry.hours * entryRate);
     }
     db.prepare(
       `UPDATE time_entries SET billed = 1, invoice_id = ? WHERE id IN (${placeholders})`
