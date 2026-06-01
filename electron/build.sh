@@ -17,6 +17,7 @@ echo "==> Building backend..."
 cd "$ROOT_DIR/backend"
 npm install
 npx tsc
+cp src/services/logo.png dist/services/logo.png
 
 echo "==> Installing Electron dependencies..."
 cd "$SCRIPT_DIR"

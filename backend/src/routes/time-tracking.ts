@@ -174,7 +174,9 @@ router.post('/generate-invoice', (req, res) => {
   if (!entries.length) return res.status(400).json({ error: 'No unbilled entries found' });
 
   const today = new Date().toISOString().split('T')[0];
-  const invNum = invoice_number || `INV-${Date.now()}`;
+  const companySlug = contact.name.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const hash = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const invNum = invoice_number || `Invoice-${companySlug}-${today}-${hash}`;
   const dueDate = due_date || today;
 
   const clientAddress = [contact.address, contact.city, contact.state, contact.zip].filter(Boolean).join(', ');
